@@ -33,7 +33,7 @@ OPTION(STATIC_STDLIB "Link std library static or dynamic, such as libgcc, libstd
 OPTION(USE_SIMD "Use SIMD" OFF)
 OPTION(USE_MUSL_LIBC "Use musl libc" OFF)
 OPTION(WITH_CPPLINGS "Compile cpplings" ON)
-
+OPTION(USE_REPLXX "Use replxx instead of linenoise for line reading" OFF)
 
 MESSAGE(STATUS "HOME dir: $ENV{HOME}")
 #SET(ENV{变量名} 值)
@@ -158,7 +158,7 @@ IF (EXISTS /usr/local/lib64)
     LINK_DIRECTORIES (/usr/local/lib64)
 ENDIF ()
 
-INCLUDE_DIRECTORIES(. ${PROJECT_SOURCE_DIR}/deps ${PROJECT_SOURCE_DIR}/src /usr/local/include)
+INCLUDE_DIRECTORIES(. ${PROJECT_SOURCE_DIR}/deps ${PROJECT_SOURCE_DIR}/deps/3rd/usr/local/include ${PROJECT_SOURCE_DIR}/src /usr/local/include)
 
 IF(WITH_UNIT_TESTS)
     IF (ENABLE_COVERAGE)
@@ -172,6 +172,17 @@ SET(CMAKE_C_FLAGS ${CMAKE_COMMON_FLAGS})
 
 MESSAGE(STATUS "CMAKE_CXX_FLAGS is " ${CMAKE_CXX_FLAGS})
 
+# Line Reading configs
+IF(USE_REPLXX)
+    ADD_DEFINITIONS(-DUSE_REPLXX=1)
+    MESSAGE(STATUS "Using replxx for line reading")
+    FIND_PACKAGE(Threads REQUIRED)
+    FIND_PACKAGE(replxx REQUIRED)
+ELSE()
+    ADD_DEFINITIONS(-DUSE_REPLXX=0)
+    MESSAGE(STATUS "Using linenoise for line reading")
+ENDIF()
+
 # ADD_SUBDIRECTORY(src bin)  bin 为目标目录， 可以省略
 # ADD_SUBDIRECTORY(deps)
 ADD_SUBDIRECTORY(src)
@@ -184,4 +195,3 @@ ENDIF(WITH_BENCHMARK)
 IF(WITH_UNIT_TESTS)
     ADD_SUBDIRECTORY(unittest)
 ENDIF(WITH_UNIT_TESTS)
-
