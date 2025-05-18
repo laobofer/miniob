@@ -34,6 +34,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/record/lsm_record_scanner.h"
 #include "storage/table/heap_table_engine.h"
 #include "storage/table/lsm_table_engine.h"
+#include "storage/persist/persist.h"
 
 Table::~Table()
 {
@@ -127,6 +128,53 @@ RC Table::create(Db *db, int32_t table_id, const char *path, const char *name, c
   LOG_INFO("Successfully create table %s:%s", base_dir, name);
   return rc;
 }
+
+RC Table::drop(const char *table_name, const char *base_dir)
+{
+  RC rc = RC::SUCCESS;
+  PersistHandler persistHandler;
+
+  auto *heap_engine = dynamic_cast<HeapTableEngine *>(engine_.get());
+  if (heap_engine != nullptr) {
+
+    for (auto index : heap_engine->all_indexes()) {
+      std::string index_file = std::string(base_dir) + "/" + table_name + "-" +
+                                index->index_meta().name() + ".index";
+      rc = persistHandler.remove_file(index_file.c_str());
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("Failed to remove index file: %s", index_file.c_str());
+        return rc;
+      }
+    }
+
+    rc = heap_engine->buffer_pool()->close_file();
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("Failed to close buffer pool");
+      return rc;
+    }
+
+    heap_engine->record_handler()->close();
+  }
+  std::string data_file = std::string(base_dir) + "/" + table_name + ".data";
+  std::string table_file = std::string(base_dir) + "/" + table_name + ".table";
+
+  rc = persistHandler.remove_file(data_file.c_str());
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("Failed to remove data file: %s", data_file.c_str());
+    return rc;
+  }
+
+  rc = persistHandler.remove_file(table_file.c_str());
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("Failed to remove table file: %s", table_file.c_str());
+    return rc;
+  }
+
+  LOG_INFO("Drop table success. table name=%s.", table_name);
+  return RC::SUCCESS;
+}
+
+
 
 RC Table::open(Db *db, const char *meta_file, const char *base_dir)
 {
